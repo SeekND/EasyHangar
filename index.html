@@ -89,6 +89,7 @@
   .card .title { font-weight: 600; font-size: 15px; line-height: 1.25; overflow-wrap: anywhere; }
   .card .note { color: var(--accent); font-size: 13px; }
   .card .sub { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+  .card .matched { color: var(--accent); font-size: 12.5px; overflow-wrap: anywhere; }
   .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
   .chip { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
   .chip.lti { color: var(--good); border-color: currentColor; }
@@ -107,6 +108,7 @@
   }
   .mini:hover { border-color: var(--accent); }
   .mini[data-image] { cursor: zoom-in; }
+  .mini svg { width: 20px; height: 20px; }
   dialog.lightbox { width: min(1200px, calc(100% - 32px)); }
   .lb-body { padding: 14px 16px 18px; overflow: auto; text-align: center; }
   .lb-body img { display: block; margin: 0 auto 10px; max-width: 100%; max-height: calc(100vh - 200px); border-radius: 8px; background: var(--panel-2); }
@@ -403,6 +405,9 @@
     // Things that come along with a pledge and say nothing about what it is
     [null, /insurance|\bhangar$|digital download|name reservation|serial number|\bmanual\b|referral|land claim|^legacy\b|starting money|customization options?/i],
     ['Paints', /\b(paints?|skin|livery)\b/i],
+    // Collectibles named after something else ("Death Mask Coin", "ORC Armor Bobblehead") are
+    // caught here, before the rules below would file them as clothing or armour
+    ['Decorations', /\b(coin|poster|plushie|bobblehead|figurine|statue|trophy|pennant|miniature|model)\b/i],
     ['Ship components', /\b(flight blade|bomb rack|module|turret|pds|torpedo|missile|laser beam|tuning kit|maneuvering unit|cooler|quantum drive|power plant|shield generator)\b|^endeavor\b/i],
     ['Weapons & tools', /\b(rifle|pistol|smg|lmg|hmg|shotgun|sniper|crossbow|knife|blade|gatling|repeater|cannon|launcher|multi-?tool|multitool|tractor beam|medical device|optic|magazine|attachment|canister|srt|fabricator|grenade|sword|railgun|laser pointer|flashlight)\b/i],
     ['Armour', /\b(helmet|core|arms|legs|backpack|undersuit|armor|armour|suit|ammo carrier|rig)\b/i],
@@ -444,16 +449,44 @@
   // there are several (a bundle filtered by Paints shows each of its paints).
   // Under the empty key sits every item, in RSI's order, for when no category is selected
   // (insurance, hangars and other extras are left out throughout).
-  function categoryItems(entries) {
+  function categoryItems(entries, pictureOf) {
     const byCat = { '': [] };
     for (const [title, kind, image] of entries) {
       const c = itemCategory(title, kind);
       if (c === null) continue;
-      const item = { title, image: image || '' };
+      const item = { title, image: image || pictureOf(title), cat: c || 'Other' };
       byCat[''].push(item);
       if (c) (byCat[c] = byCat[c] || []).push(item);
     }
     return byCat;
+  }
+
+  // RSI lists many bundle contents as plain text, with no picture. Where the same item shows
+  // up with a picture somewhere else in the export, that picture is borrowed: from a pledge
+  // that pictures it, or from a pledge or buy-back that consists of just that item.
+  const normName = (s) => (s || '').toLowerCase().replace(/[‘’'"“”`]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  const afterPrefix = (n) => { const s = n || ''; const i = s.indexOf(' - '); return i < 0 ? s : s.slice(i + 3); };
+  function pictureLookup(data) {
+    const byName = new Map();
+    const put = (name, image) => {
+      const k = normName(name);
+      if (k && image && !byName.has(k)) byName.set(k, image);
+    };
+    const real = (entries) => entries.filter(([t, k]) => itemCategory(t, k) !== null);
+    for (const p of data.pledges || []) for (const i of p.items || []) if (i.kind !== 'Insurance') put(i.title, i.image);
+    for (const p of data.pledges || []) {
+      const contents = real(pledgeEntries(p));
+      if (contents.length !== 1) continue;
+      put(contents[0][0], p.image);
+      put(afterPrefix(p.name), p.image);
+    }
+    for (const b of data.buybacks || []) {
+      const contents = real(buybackEntries(b));
+      if (contents.length !== 1) continue;
+      put(contents[0][0], b.image);
+      put(afterPrefix(b.name), b.image);
+    }
+    return (name) => byName.get(normName(name)) || '';
   }
 
   // ---------------------------------------------------- rows for each view
@@ -478,6 +511,7 @@
   function buildRows(data) {
     const pledgeById = new Map((data.pledges || []).map((p) => [p.id, p]));
     const buybackById = new Map((data.buybacks || []).map((b) => [b.id, b]));
+    const pictureOf = pictureLookup(data);
     return {
       ships: (data.ships || []).map((s) => finish({
         title: s.name,
@@ -503,7 +537,7 @@
           note: '',
           sub: [cats.join(', '), p.contains].filter(Boolean).join(' · '),
           facets: cats,
-          facetItems: categoryItems(pledgeEntries(p)),
+          facetItems: categoryItems(pledgeEntries(p), pictureOf),
           image: p.image,
           value: p.value, currency: p.valueCurrency,
           valueNote: '',
@@ -539,7 +573,7 @@
           note: '',
           sub: [cats.join(', '), b.contained !== rest && b.contained !== b.name ? b.contained : ''].filter(Boolean).join(' · '),
           facets: cats,
-          facetItems: categoryItems(buybackEntries(b)),
+          facetItems: categoryItems(buybackEntries(b), pictureOf),
           image: b.image || b.storeImage,
           value: b.price == null ? null : b.price, currency: b.priceCurrency || '',
           valueNote: '',
@@ -694,8 +728,16 @@
   function card(group, inPack) {
     const r = group.rep;
     const n = group.members.length;
-    // Only items that have a picture: a row of blank boxes would say nothing
-    const several = filteredItems(r).filter((i) => i.image);
+    // Items with no picture anywhere get a symbol for their category instead
+    const several = filteredItems(r);
+    // In a mixed pledge, say which items put it under the category being filtered, so a ship
+    // kit listed under Clothing shows the hat and T-shirt that come with it
+    const facet = state[current].facet;
+    let matched = '';
+    if (facet && r.facetItems && r.facets.length > 1) {
+      const names = filteredItems(r).map((i) => i.title);
+      if (names.length) matched = facet + ': ' + names.slice(0, 3).join(', ') + (names.length > 3 ? ' and ' + (names.length - 3) + ' more' : '');
+    }
     const chips = [insChip(r)];
     if (r.giftable) chips.push(el('span', { class: 'chip', text: 'Giftable' }));
     if (r.valueNote && !inPack) chips.push(el('span', { class: 'chip', text: r.valueNote }));
@@ -707,6 +749,7 @@
         el('div', { class: 'title', text: r.title }),
         r.note && el('div', { class: 'note', text: r.note }),
         r.sub && el('div', { class: 'sub', text: r.sub }),
+        matched && el('div', { class: 'matched', text: matched }),
         // A bundle: a small picture of each item, or of each item of the filtered kind
         several.length > 1 && el('div', { class: 'minis' }, several.map(miniShip)),
         chips.some(Boolean) ? el('div', { class: 'chips' }, chips) : null,
@@ -719,15 +762,41 @@
   // bundle; hovering it shows the name
   function miniShip(m) {
     const img = safeImg(m.image);
-    const initials = m.title.slice(0, 2).toUpperCase();
     // data-image marks the box as clickable: a click opens the full picture
     const box = el('span', { class: 'mini', 'data-name': m.title, 'data-image': img || null });
-    if (!img) { box.textContent = initials; return box; }
+    // No picture (or it fails to load): a symbol for the kind of item, still named on hover
+    const useSymbol = () => {
+      box.removeAttribute('data-image');
+      box.classList.add('symbol');
+      box.replaceChildren(glyph(m.cat || 'Ships'));
+    };
+    if (!img) { useSymbol(); return box; }
     box.append(el('img', {
       src: img, alt: m.title, loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer',
-      onerror: () => { box.textContent = initials; },
+      onerror: useSymbol,
     }));
     return box;
+  }
+
+  // One simple outline per category, for items RSI gives no picture of
+  const GLYPHS = {
+    Ships: 'M12 3l7 17-7-4-7 4z',
+    Paints: 'M12 3c3.5 4.5 6 7.6 6 10.5a6 6 0 0 1-12 0C6 10.6 8.5 7.5 12 3z',
+    'Ship components': 'M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9zM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
+    Armour: 'M12 3L5 6v5c0 4.5 3 8 7 10 4-2 7-5.500 7-10V6z',
+    Clothing: 'M8 3L4 6l2 4 2-1v9h8V9l2 1 2-4-4-3c-.6 1.200-2 2-4 2s-3.400-.8-4-2z',
+    'Weapons & tools': 'M18 12a6 6 0 1 1-12 0 6 6 0 0 1 12 0zM12 2v5M12 17v5M2 12h5M17 12h5',
+    Decorations: 'M12 3l2.700 5.600 6.100.8-4.500 4.200 1.100 6.100L12 16.800 6.600 19.700l1.100-6.100L3.200 9.400l6.100-.8z',
+    Other: 'M4 8l8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8',
+  };
+  function glyph(cat) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    for (const [k, v] of Object.entries({ viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '1.7', 'stroke-linejoin': 'round', 'stroke-linecap': 'round', 'aria-hidden': 'true' })) svg.setAttribute(k, v);
+    const path = document.createElementNS(NS, 'path');
+    path.setAttribute('d', GLYPHS[cat] || GLYPHS.Other);
+    svg.append(path);
+    return svg;
   }
 
   // A pack is one stacked card; clicking it opens a full-width panel with its ships
