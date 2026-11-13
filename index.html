@@ -1,0 +1,1167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EasyHangar</title>
+<style>
+  :root {
+    --bg: #0a0e13;
+    --panel: #121922;
+    --panel-2: #18212c;
+    --border: #243242;
+    --text: #e6edf3;
+    --muted: #8a9bb0;
+    --accent: #4cc2ff;
+    --accent-ink: #04202e;
+    --good: #5fd08a;
+    --warn: #f0b354;
+    --shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f3f5f8;
+      --panel: #ffffff;
+      --panel-2: #eef1f5;
+      --border: #d5dbe3;
+      --text: #17202b;
+      --muted: #5c6b7d;
+      --accent: #0b6fa8;
+      --accent-ink: #ffffff;
+      --good: #1d7f47;
+      --warn: #94610a;
+      --shadow: 0 8px 30px rgba(20, 30, 45, 0.18);
+      color-scheme: light;
+    }
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 14px/1.45 "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  }
+  .wrap { max-width: 1500px; margin: 0 auto; padding: 0 20px 60px; }
+
+  header.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 22px 0 14px; }
+  h1 { margin: 0; font-size: 24px; font-weight: 650; letter-spacing: 0.01em; }
+  #meta { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+  .top-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+
+  button, select, input[type="search"] {
+    font: inherit; color: var(--text); background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 11px; min-height: 36px;
+  }
+  button { cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+  .tab { border: 0; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0; background: transparent; color: var(--muted); padding: 10px 14px; }
+  .tab:hover { color: var(--text); }
+  .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); background: var(--panel); }
+  .tab .n { margin-left: 6px; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 14px 0 6px; }
+  .controls input[type="search"] { flex: 1 1 240px; min-width: 180px; }
+  .controls select { max-width: 100%; }
+  .check { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); cursor: pointer; white-space: nowrap; }
+  .check input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+  #summary { margin: 6px 0 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  #summary strong { color: var(--text); font-weight: 600; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+  .card {
+    display: flex; flex-direction: column; text-align: left; padding: 0; overflow: hidden; min-height: 0;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  }
+  .card:hover { border-color: var(--accent); }
+  .thumb { position: relative; width: 100%; aspect-ratio: 16 / 9; background: var(--panel-2); overflow: hidden; }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .thumb .count {
+    position: absolute; top: 8px; right: 8px; background: var(--accent); color: var(--accent-ink);
+    font-weight: 700; font-size: 12px; border-radius: 999px; padding: 2px 9px;
+  }
+  .card .body { display: flex; flex-direction: column; gap: 4px; padding: 11px 12px 12px; flex: 1; width: 100%; }
+  .card .title { font-weight: 600; font-size: 15px; line-height: 1.25; overflow-wrap: anywhere; }
+  .card .note { color: var(--accent); font-size: 13px; }
+  .card .sub { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+  .chip { font-size: 11.5px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .chip.lti { color: var(--good); border-color: currentColor; }
+  .chip.long { color: var(--warn); border-color: currentColor; }
+  .card .foot { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-top: auto; padding-top: 8px; }
+  .card .value { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .card .date { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+  /* A pack: one stacked card that opens into a panel holding its ships */
+  .card.pack { box-shadow: 5px 5px 0 -1px var(--panel-2), 5px 5px 0 0 var(--border); margin: 0 5px 5px 0; }
+  .card .more { color: var(--accent); font-size: 12.5px; margin-top: 6px; }
+  .minis { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .mini {
+    display: grid; place-items: center; width: 54px; height: 34px; overflow: hidden; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--panel-2); color: var(--muted); font-size: 11px; font-weight: 600;
+  }
+  .mini:hover { border-color: var(--accent); }
+  .mini[data-image] { cursor: zoom-in; }
+  dialog.lightbox { width: min(1200px, calc(100% - 32px)); }
+  .lb-body { padding: 14px 16px 18px; overflow: auto; text-align: center; }
+  .lb-body img { display: block; margin: 0 auto 10px; max-width: 100%; max-height: calc(100vh - 200px); border-radius: 8px; background: var(--panel-2); }
+  .mini img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tip {
+    position: fixed; z-index: 20; pointer-events: none; white-space: nowrap; font-size: 12.5px; font-weight: 500;
+    background: var(--text); color: var(--bg); padding: 3px 9px; border-radius: 6px; box-shadow: var(--shadow);
+  }
+  .pack-open { grid-column: 1 / -1; border: 1px solid var(--accent); border-radius: 12px; background: var(--panel-2); padding: 12px; }
+  .pack-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  .pack-toggle { flex: 1 1 240px; display: flex; flex-direction: column; gap: 2px; text-align: left; border: 0; background: transparent; padding: 4px 6px; }
+  .pack-toggle .title { font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
+  .pack-toggle .sub { color: var(--muted); font-size: 12.5px; }
+  .pack-toggle .sub b { color: var(--accent); font-weight: 500; }
+
+  .howto { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 18px; max-width: 900px; }
+  .howto summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; cursor: pointer; padding: 12px 18px; list-style: none; border-radius: 12px; }
+  .howto summary::-webkit-details-marker { display: none; }
+  .howto-title { font-weight: 650; font-size: 17px; }
+  .howto-toggle { font-size: 13px; color: var(--accent); border: 1px solid var(--border); border-radius: 8px; padding: 4px 12px; white-space: nowrap; }
+  .howto-toggle::after { content: "Show"; }
+  .howto[open] .howto-toggle::after { content: "Minimise"; }
+  .howto-body { padding: 0 22px 18px; font-size: 15.5px; line-height: 1.55; }
+  .howto p { margin: 10px 0; }
+  .howto ol { margin: 14px 0; padding-left: 24px; }
+  .howto li { margin: 0 0 16px; padding-left: 4px; }
+  .howto li > strong:first-child { display: block; font-size: 16.5px; margin-bottom: 2px; }
+  .howto code { background: var(--panel-2); padding: 1px 6px; border-radius: 4px; }
+  .howto .fine { color: var(--muted); font-size: 13.5px; }
+  /* Nothing in the drag strip can be selected, so a grab that lands slightly off the button
+     does not turn into a text selection */
+  .drag-zone {
+    display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin: 12px 0 6px; padding: 18px;
+    border: 2px dashed var(--accent); border-radius: 12px; background: var(--panel-2);
+    user-select: none; -webkit-user-select: none;
+  }
+  .drag-btn {
+    display: inline-block; padding: 14px 30px; font-size: 19px; font-weight: 700; text-decoration: none;
+    background: var(--accent); color: var(--accent-ink); border-radius: 10px; cursor: grab;
+    user-select: none; -webkit-user-select: none; -webkit-user-drag: element;
+  }
+  .drag-btn:active { cursor: grabbing; }
+  .drag-hint { color: var(--muted); }
+  .plain-btn { display: inline-block; margin: 6px 8px 6px 0; padding: 8px 16px; border: 1px solid var(--accent); border-radius: 8px; text-decoration: none; font-weight: 600; }
+  .notice { max-width: 900px; margin: 0 0 18px; padding: 10px 16px; border: 1px solid var(--good); border-radius: 10px; color: var(--good); }
+  .foot { margin-top: 44px; color: var(--muted); font-size: 12.5px; max-width: 900px; }
+  .msg { color: var(--accent); font-size: 13px; }
+  .script-box { display: block; width: 100%; height: 120px; margin: 8px 0; padding: 8px; font: 12px/1.4 Consolas, monospace; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; resize: vertical; }
+
+  .empty { border: 1px dashed var(--border); border-radius: 12px; padding: 40px 20px; text-align: center; color: var(--muted); }
+  .empty h2 { color: var(--text); margin: 0 0 8px; font-size: 18px; }
+  .empty code { background: var(--panel-2); padding: 1px 6px; border-radius: 4px; }
+
+  dialog {
+    width: min(760px, calc(100% - 32px)); max-height: calc(100% - 40px); padding: 0; overflow: hidden;
+    background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow);
+  }
+  dialog[open] { display: flex; flex-direction: column; }
+  dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+  .dlg-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 16px 18px 12px; border-bottom: 1px solid var(--border); }
+  .dlg-head h2 { margin: 0; font-size: 19px; overflow-wrap: anywhere; }
+  .dlg-head p { margin: 3px 0 0; color: var(--muted); }
+  .dlg-body { padding: 16px 18px 20px; overflow: auto; }
+  .dlg-body img.hero { width: 100%; max-height: 300px; object-fit: cover; border-radius: 8px; margin-bottom: 14px; background: var(--panel-2); }
+  .dlg-body h3 { margin: 18px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+  .facts { display: grid; grid-template-columns: max-content 1fr; gap: 5px 16px; margin: 0; }
+  .facts dt { color: var(--muted); }
+  .facts dd { margin: 0; overflow-wrap: anywhere; }
+  .list { margin: 0; padding: 0; list-style: none; }
+  .list li { padding: 5px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+  .list li:first-child { border-top: 0; }
+  .list small { color: var(--muted); margin-left: 6px; }
+  .desc { color: var(--muted); margin: 0; }
+  a { color: var(--accent); }
+  .members { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  .members th, .members td { text-align: left; padding: 5px 10px 5px 0; border-top: 1px solid var(--border); }
+  .members th { color: var(--muted); font-weight: 500; border-top: 0; }
+  .scroll-x { overflow-x: auto; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  .btn-link { display: inline-block; text-decoration: none; background: var(--accent); color: var(--accent-ink); font-weight: 600; padding: 8px 14px; border-radius: 8px; }
+  body.dragging::after {
+    content: "Drop your EasyHangar file to load it"; position: fixed; inset: 12px; display: grid; place-items: center; font-size: 20px;
+    border: 2px dashed var(--accent); border-radius: 14px; background: rgba(10, 14, 19, 0.85); color: #fff; pointer-events: none; z-index: 10;
+  }
+  @media (max-width: 520px) {
+    .wrap { padding: 0 16px 40px; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; }
+    .facts { grid-template-columns: 1fr; gap: 0; }
+    .facts dd { margin-bottom: 8px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>EasyHangar</h1>
+      <p id="meta"></p>
+    </div>
+    <div class="top-actions">
+      <label class="check"><input type="checkbox" id="hideValues"> Hide values</label>
+      <button id="loadBtn" type="button">Load a file</button>
+      <input id="fileInput" type="file" accept=".json,application/json" hidden>
+    </div>
+  </header>
+
+  <!-- The guide. Open for a first visit, minimised to its title bar once there is data. -->
+  <details id="howto" class="howto">
+    <summary><span class="howto-title">How to get your hangar data</span> <span class="howto-toggle" aria-hidden="true"></span></summary>
+    <div class="howto-body">
+      <p>EasyHangar shows everything in your own RSI account: ships, pledges and buy-backs. Getting your data takes three steps. You set up step 1 once; after that it is one click.</p>
+      <ol>
+        <li>
+          <strong>Add the EasyHangar button to your bookmarks bar.</strong>
+          If you cannot see a bookmarks bar under the address box, press Ctrl+Shift+B (Cmd+Shift+B on a Mac). Then hold the mouse button down on the blue button below and drag it up onto the bar.
+          <div class="drag-zone">
+            <a id="bookmarklet" class="drag-btn" href="#" draggable="true">EasyHangar</a>
+            <span class="drag-hint">Drag me to the bookmarks bar</span>
+          </div>
+          <span id="howtoMsg" class="msg" aria-live="polite"></span>
+        </li>
+        <li>
+          <strong>Open your hangar on the RSI website and click that bookmark.</strong>
+          <a id="rsiLink" class="plain-btn" href="https://robertsspaceindustries.com/en/account/pledges" target="_blank" rel="opener">Open my RSI hangar</a>
+          Sign in if asked, then click the EasyHangar bookmark. A small panel appears in the corner: press Start and wait. With hundreds of buy-backs it takes several minutes.
+        </li>
+        <li>
+          <strong>Come back here.</strong>
+          When the panel says Done, your hangar appears on this page. If it does not, press <strong>Show my hangar</strong> in the panel.
+        </li>
+      </ol>
+      <p><strong>Where is my data kept?</strong> Only on your computer. A copy is saved as a file named like <code>EasyHangar-2026-11-13.json</code> in your browser's Downloads folder (Ctrl+J shows it), and this page remembers your hangar in this browser. To open a saved file later, press <strong>Load a file</strong> at the top.</p>
+      <p><strong>Bookmark not working?</strong> <button id="copyScript" type="button">Copy the script instead</button> Then on the RSI page press F12, open the Console tab, paste and press Enter. Chrome and Edge may first ask you to type <code>allow pasting</code>.</p>
+      <textarea id="scriptBox" class="script-box" readonly hidden aria-label="Export script"></textarea>
+      <p class="fine">Nothing is uploaded anywhere. EasyHangar only reads your own hangar and buy-back pages, changes nothing in your account, and never sees your password.</p>
+    </div>
+  </details>
+  <p id="notice" class="notice" role="status" hidden></p>
+
+  <div id="app" hidden>
+    <nav class="tabs" id="tabs" role="tablist" aria-label="Views"></nav>
+    <div class="controls">
+      <input id="search" type="search" placeholder="Search name, manufacturer, contents, pledge ID" aria-label="Search">
+      <select id="facet" aria-label="Filter"></select>
+      <select id="insurance" aria-label="Insurance">
+        <option value="">Any insurance</option>
+        <option value="lti">Lifetime (LTI)</option>
+        <option value="long">120 months or more</option>
+        <option value="short">Under 120 months</option>
+        <option value="none">No insurance</option>
+      </select>
+      <select id="sort" aria-label="Sort">
+        <option value="name">Name A–Z</option>
+        <option value="valueDesc">Value, high to low</option>
+        <option value="valueAsc">Value, low to high</option>
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+      </select>
+      <label class="check" id="giftableWrap"><input type="checkbox" id="giftable"> Giftable only</label>
+      <label class="check"><input type="checkbox" id="group"> Group duplicates</label>
+      <label class="check" id="packsWrap"><input type="checkbox" id="packs"> Merge packs</label>
+    </div>
+    <p id="summary" aria-live="polite"></p>
+    <main id="grid" class="grid"></main>
+    <div id="noResults" class="empty" hidden><h2>Nothing matches</h2>Try a different search or clear the filters.</div>
+  </div>
+
+  <footer class="foot">EasyHangar is an unofficial, fan-made tool. It is not affiliated with or endorsed by Cloud Imperium Games or Roberts Space Industries. Star Citizen, its ships and their images belong to their owners.</footer>
+</div>
+
+<div id="tip" class="tip" hidden></div>
+
+<dialog id="lightbox" class="lightbox" aria-labelledby="lbTitle">
+  <div class="dlg-head">
+    <h2 id="lbTitle"></h2>
+    <button id="lbClose" type="button" aria-label="Close">Close</button>
+  </div>
+  <div class="lb-body" id="lbBody"></div>
+</dialog>
+
+<dialog id="detail" aria-labelledby="dlgTitle">
+  <div class="dlg-head">
+    <div>
+      <h2 id="dlgTitle"></h2>
+      <p id="dlgSub"></p>
+    </div>
+    <button id="dlgClose" type="button" aria-label="Close">Close</button>
+  </div>
+  <div class="dlg-body" id="dlgBody"></div>
+</dialog>
+
+<script src="export.js"></script>
+<script>
+(() => {
+  'use strict';
+
+  const STORE_KEY = 'easyhangar-data';
+  const GUIDE_KEY = 'easyhangar-guide';
+  const $ = (id) => document.getElementById(id);
+
+  // Build an element. All data goes in as text, never as HTML.
+  function el(tag, attrs, ...kids) {
+    const n = document.createElement(tag);
+    if (attrs) {
+      for (const [k, v] of Object.entries(attrs)) {
+        if (v == null || v === false) continue;
+        if (k === 'class') n.className = v;
+        else if (k === 'text') n.textContent = v;
+        else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+        else n.setAttribute(k, v === true ? '' : v);
+      }
+    }
+    for (const kid of kids.flat()) if (kid != null && kid !== false) n.append(kid);
+    return n;
+  }
+
+  // ------------------------------------------------------------- formatting
+
+  function fmtMoney(n, cur) {
+    if (n == null || isNaN(n)) return '';
+    if (/^[A-Z]{3}$/.test(cur || '') && cur !== 'UEC') {
+      try {
+        return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur }).format(n);
+      } catch (e) { /* fall through */ }
+    }
+    return n.toLocaleString() + (cur ? ' ' + cur : '');
+  }
+  // "Hide values": every amount is drawn as a fixed-length smudge, so it is clear a value
+  // exists but neither the number nor its size can be read. The real figure never reaches the page.
+  const HIDE_KEY = 'easyhangar-hide-values';
+  let hideValues = false;
+  try { hideValues = localStorage.getItem(HIDE_KEY) === '1'; } catch (e) { /* storage blocked */ }
+  function smudge(seed) {
+    const s = String(seed || '');
+    let h = 7;
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    let out = '';
+    for (let i = 0; i < 6; i++) { out += '▓▒░'[h % 3]; h = Math.floor(h / 3) + 11 * (i + 1); }
+    return out;
+  }
+  // Money as shown on the page: the amount, or its smudge when values are hidden
+  function showMoney(n, cur, seed) {
+    if (n == null || isNaN(n)) return '';
+    return hideValues ? smudge(seed) : fmtMoney(n, cur);
+  }
+
+  function fmtDate(iso) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso || '');
+    if (!m) return '';
+    return new Date(+m[1], m[2] - 1, +m[3]).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  }
+  function fmtDateTime(iso) {
+    const d = new Date(iso);
+    return isNaN(d) ? '' : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+  }
+  const safeImg = (u) => (/^https:\/\//i.test(u || '') ? u : '');
+  const safeLink = (u) => (/^https:\/\/([a-z0-9-]+\.)*robertsspaceindustries\.com\//i.test(u || '') ? u : '');
+  const plural = (n, one, many) => n.toLocaleString() + ' ' + (n === 1 ? one : many);
+
+  // Best insurance in a list -> { key: lti | long | short | none, label }
+  function rankInsurance(list) {
+    if (!list || !list.length) return { key: 'none', label: '' };
+    if (list.some((s) => /lifetime/i.test(s))) return { key: 'lti', label: 'LTI' };
+    let months = 0;
+    for (const s of list) {
+      const m = /(\d+)\s*month/i.exec(s);
+      const y = /(\d+)\s*year/i.exec(s);
+      if (m) months = Math.max(months, +m[1]);
+      if (y) months = Math.max(months, +y[1] * 12);
+    }
+    if (!months) return { key: 'short', label: list[0] };
+    return { key: months >= 120 ? 'long' : 'short', label: months + ' mo' };
+  }
+
+  // "Standalone Ships - Sabre" -> ["Standalone Ships", "Sabre"]. Only RSI's own store
+  // prefixes count; reward names like "Polaris - Best in Show Reward" are left whole.
+  const STORE_PREFIXES = ['Standalone Ships', 'Standalone Ship', 'Subscribers Store', 'Add-Ons', 'Package', 'Packs', 'Paints', 'Gear', 'Upgrade', 'Extras'];
+  function splitName(name) {
+    const s = (name || '').trim();
+    for (const p of STORE_PREFIXES) {
+      if (s.startsWith(p + ' - ')) return [p === 'Standalone Ship' ? 'Standalone Ships' : p, s.slice(p.length + 3).trim()];
+    }
+    return ['Other', s];
+  }
+
+  // ------------------------------------------------------------ categories
+  // A pledge is filed under every kind of thing it contains, so a bundle with a paint and a
+  // rifle shows up under both Paints and Weapons & tools. RSI's own labels are too coarse for
+  // this (armour, guns, coins and posters are all "FPS Equipment", and many items carry no
+  // label at all), so most items are sorted by words in their name.
+
+  const KIND_CATEGORY = { Ship: 'Ships', Skin: 'Paints', Component: 'Ship components', 'Hangar decoration': 'Decorations', Credits: 'Credits' };
+  const TEXT_RULES = [
+    // Things that come along with a pledge and say nothing about what it is
+    [null, /insurance|\bhangar$|digital download|name reservation|serial number|\bmanual\b|referral|land claim|^legacy\b|starting money|customization options?/i],
+    ['Paints', /\b(paints?|skin|livery)\b/i],
+    ['Ship components', /\b(flight blade|bomb rack|module|turret|pds|torpedo|missile|laser beam|tuning kit|maneuvering unit|cooler|quantum drive|power plant|shield generator)\b|^endeavor\b/i],
+    ['Weapons & tools', /\b(rifle|pistol|smg|lmg|hmg|shotgun|sniper|crossbow|knife|blade|gatling|repeater|cannon|launcher|multi-?tool|multitool|tractor beam|medical device|optic|magazine|attachment|canister|srt|fabricator|grenade|sword|railgun|laser pointer|flashlight)\b/i],
+    ['Armour', /\b(helmet|core|arms|legs|backpack|undersuit|armor|armour|suit|ammo carrier|rig)\b/i],
+    ['Clothing', /\b(hat|cap|t-?shirt|shirt|jacket|pants?|boots?|gloves|sweater|beanie|coat|hood|vest|mask|jumpsuit|uniform|outfit|monocle|head gear|shoes|dress|scarf|goggles|glasses|leather cut)\b/i],
+    ['Decorations', /\b(coin|poster|plushie|model|miniature|statue|trophy|figurine|display|pennant|flag|badge|patch|bobblehead|lamp|light|light stick|sign|planter|wreath|skull|container|chest|bed|chair|loveseat|throne|nightstand|cabinet|jukebox|tank|towel|globe|envelope|fishtank|plant|cactus|flower|mushroom|tree|moss|artifact|relic|collectible|prop|whiskey|box|bust|sculpture|replica|hologram|vending machine|case|painting|token|charm|mug|tankard|bottle|cookie jar|cube|dice|die|sextant|penguin|drill head|takuetsu)\b|\bsq\./i],
+  ];
+  // What the store's own name prefix says, used only when the contents say nothing
+  const PREFIX_CATEGORY = { Paints: 'Paints', Upgrade: 'Upgrades', 'Standalone Ships': 'Ships', 'Standalone Ship': 'Ships', Packs: 'Ships', Package: 'Game packages' };
+  // Order the categories appear in on cards and in the filter
+  const CATEGORY_ORDER = ['Ships', 'Game packages', 'Upgrades', 'Paints', 'Ship components', 'Armour', 'Clothing', 'Weapons & tools', 'Decorations', 'Credits', 'Other'];
+
+  // Category of one item: from RSI's label where that is specific, else from its name.
+  // Returns null for extras (insurance, hangars, game downloads) and '' when nothing matches.
+  function itemCategory(title, kind) {
+    if (kind === 'Insurance') return null;
+    if (KIND_CATEGORY[kind]) return KIND_CATEGORY[kind];
+    for (const [cat, re] of TEXT_RULES) if (re.test(title || '')) return cat;
+    return '';
+  }
+  // Every category a pledge belongs to. entries is a list of [item name, RSI label].
+  function categoriesOf(entries, name) {
+    const cats = new Set();
+    for (const [title, kind] of entries) {
+      const c = itemCategory(title, kind);
+      if (c) cats.add(c);
+    }
+    if (/^upgrade\b/i.test(name || '')) cats.add('Upgrades');
+    if (entries.some(([t]) => /digital download/i.test(t || ''))) cats.add('Game packages');
+    // Nothing recognised inside: let the pledge's own name decide, then the store prefix
+    if (!cats.size) { const c = itemCategory(name, ''); if (c) cats.add(c); }
+    if (!cats.size) { const p = PREFIX_CATEGORY[(name || '').split(' - ')[0].trim()]; if (p) cats.add(p); }
+    if (!cats.size) cats.add('Other');
+    return CATEGORY_ORDER.filter((c) => cats.has(c));
+  }
+  const pledgeEntries = (p) => [...(p.items || []).map((i) => [i.title, i.kind, i.image]), ...(p.alsoContains || []).map((t) => [t, '', ''])];
+  const buybackEntries = (b) => [...(b.ships || []).map((s) => [s.name, 'Ship', s.image]), ...(b.alsoContains || []).map((t) => [t, '', ''])];
+  // The items of a pledge, listed under their category. While a category is the active filter,
+  // a card shows the picture of its first such item, and small pictures of all of them when
+  // there are several (a bundle filtered by Paints shows each of its paints).
+  // Under the empty key sits every item, in RSI's order, for when no category is selected
+  // (insurance, hangars and other extras are left out throughout).
+  function categoryItems(entries) {
+    const byCat = { '': [] };
+    for (const [title, kind, image] of entries) {
+      const c = itemCategory(title, kind);
+      if (c === null) continue;
+      const item = { title, image: image || '' };
+      byCat[''].push(item);
+      if (c) (byCat[c] = byCat[c] || []).push(item);
+    }
+    return byCat;
+  }
+
+  // ---------------------------------------------------- rows for each view
+
+  const isIns = (s) => /insurance/i.test(s || '');
+  const pledgeInsurance = (p) => [
+    ...(p.items || []).filter((i) => i.kind === 'Insurance' || isIns(i.title)).map((i) => i.title),
+    ...(p.alsoContains || []).filter(isIns),
+  ];
+
+  // row.facets: every filter value the row answers to (one manufacturer, or several categories)
+  function finish(row, extraSearch) {
+    row.ins = rankInsurance(row.insurance);
+    row.search = [row.title, row.note, row.sub, ...row.facets, row.ownerKey, ...(extraSearch || [])]
+      .filter(Boolean).join(' ').toLowerCase();
+    row.groupKey = [row.title, row.note, row.facets.join(','), row.value, row.currency, row.ins.key, row.ins.label].join('|');
+    return row;
+  }
+  const pledgeSearch = (p) => p ? [p.name, p.contains, ...(p.items || []).map((i) => i.title), ...(p.alsoContains || [])] : [];
+  const buybackSearch = (b) => b ? [b.name, b.contained, ...(b.ships || []).map((s) => s.name), ...(b.alsoContains || [])] : [];
+
+  function buildRows(data) {
+    const pledgeById = new Map((data.pledges || []).map((p) => [p.id, p]));
+    const buybackById = new Map((data.buybacks || []).map((b) => [b.id, b]));
+    return {
+      ships: (data.ships || []).map((s) => finish({
+        title: s.name,
+        note: s.customName ? '“' + s.customName + '”' : '',
+        sub: s.manufacturer,
+        facets: [s.manufacturer || 'Unknown'],
+        image: s.image,
+        value: s.pledgeValue, currency: s.pledgeCurrency,
+        valueNote: s.shipsInPledge > 1 ? 'pack of ' + s.shipsInPledge : '',
+        packSize: s.shipsInPledge || 1,
+        date: s.created,
+        insurance: s.insurance || [],
+        giftable: !!s.canGift,
+        ownerKey: s.pledgeId,
+        detail: { type: 'pledge', ref: pledgeById.get(s.pledgeId) || null },
+      }, pledgeSearch(pledgeById.get(s.pledgeId)))),
+
+      pledges: (data.pledges || []).map((p) => {
+        const rest = splitName(p.name)[1];
+        const cats = categoriesOf(pledgeEntries(p), p.name);
+        return finish({
+          title: rest || p.name,
+          note: '',
+          sub: [cats.join(', '), p.contains].filter(Boolean).join(' · '),
+          facets: cats,
+          facetItems: categoryItems(pledgeEntries(p)),
+          image: p.image,
+          value: p.value, currency: p.valueCurrency,
+          valueNote: '',
+          date: p.created,
+          insurance: pledgeInsurance(p),
+          giftable: !!p.canGift,
+          ownerKey: p.id,
+          detail: { type: 'pledge', ref: p },
+        }, pledgeSearch(p));
+      }),
+
+      buybackShips: (data.buybackShips || []).map((s) => finish({
+        title: s.name,
+        note: '',
+        sub: [s.manufacturer, s.focus].filter(Boolean).join(' · '),
+        facets: [s.manufacturer || 'Unknown'],
+        image: s.image,
+        value: s.price, currency: s.priceCurrency,
+        valueNote: s.shipsInPledge > 1 ? 'pack of ' + s.shipsInPledge : '',
+        packSize: s.shipsInPledge || 1,
+        date: s.reclaimed,
+        insurance: s.insurance || [],
+        giftable: false,
+        ownerKey: s.buybackId,
+        detail: { type: 'buyback', ref: buybackById.get(s.buybackId) || null },
+      }, buybackSearch(buybackById.get(s.buybackId)))),
+
+      buybacks: (data.buybacks || []).map((b) => {
+        const rest = splitName(b.name)[1];
+        const cats = categoriesOf(buybackEntries(b), b.name);
+        return finish({
+          title: rest || b.name,
+          note: '',
+          sub: [cats.join(', '), b.contained !== rest && b.contained !== b.name ? b.contained : ''].filter(Boolean).join(' · '),
+          facets: cats,
+          facetItems: categoryItems(buybackEntries(b)),
+          image: b.image || b.storeImage,
+          value: b.price == null ? null : b.price, currency: b.priceCurrency || '',
+          valueNote: '',
+          date: b.reclaimed,
+          insurance: b.insurance || [],
+          giftable: false,
+          ownerKey: b.id,
+          detail: { type: 'buyback', ref: b },
+        }, buybackSearch(b));
+      }),
+    };
+  }
+
+  // One card standing for a whole pack, built from any of its ships
+  function packRow(r, members) {
+    const ref = r.detail.ref;
+    const name = ref ? ref.name : r.title;
+    return finish({
+      title: splitName(name)[1] || name,
+      note: '',
+      sub: 'Pack · ' + plural(members.length, 'ship', 'ships'),
+      facets: ['Pack'],
+      image: (ref && ref.image) || r.image,
+      value: r.value, currency: r.currency,
+      valueNote: '',
+      packSize: members.length,
+      date: r.date,
+      insurance: r.insurance,
+      giftable: r.giftable,
+      ownerKey: r.ownerKey,
+      detail: r.detail,
+    });
+  }
+
+  const VIEWS = [
+    { id: 'ships', label: 'My ships', noun: ['ship', 'ships'], facetAll: 'All manufacturers', hangar: true, packs: true, sort: 'name', group: false, valueLabel: 'pledge value' },
+    { id: 'pledges', label: 'Hangar pledges', noun: ['pledge', 'pledges'], facetAll: 'All categories', hangar: true, packs: false, sort: 'newest', group: false, valueLabel: 'pledge value' },
+    { id: 'buybackShips', label: 'Buy-back ships', noun: ['ship', 'ships'], facetAll: 'All manufacturers', hangar: false, packs: true, sort: 'name', group: true, valueLabel: 'buy-back price' },
+    { id: 'buybacks', label: 'Buy-back pledges', noun: ['pledge', 'pledges'], facetAll: 'All categories', hangar: false, packs: false, sort: 'newest', group: true, valueLabel: 'buy-back price' },
+  ];
+
+  // ------------------------------------------------------------------ state
+
+  let data = null;
+  let rows = {};
+  let current = 'ships';
+  const state = {};
+  const expanded = {}; // per view: which packs are open
+  for (const v of VIEWS) {
+    state[v.id] = { q: '', facet: '', insurance: '', sort: v.sort, giftable: false, group: v.group, packs: v.packs };
+    expanded[v.id] = new Set();
+  }
+
+  // ----------------------------------------------------------------- render
+
+  function visibleGroups() {
+    const st = state[current];
+    const terms = st.q.toLowerCase().split(/\s+/).filter(Boolean);
+    const filtered = rows[current].filter((r) =>
+      terms.every((t) => r.search.includes(t)) &&
+      (!st.facet || r.facets.includes(st.facet)) &&
+      (!st.insurance || r.ins.key === st.insurance) &&
+      (!st.giftable || r.giftable));
+
+    const groups = [];
+    // Merge packs: a pack shows as one card when any of its ships passes the filters,
+    // and always carries all of its ships
+    let singles = filtered;
+    if (st.packs) {
+      singles = [];
+      const packs = new Set();
+      for (const r of filtered) {
+        if (!(r.packSize > 1)) { singles.push(r); continue; }
+        if (packs.has(r.ownerKey)) continue;
+        packs.add(r.ownerKey);
+        const members = rows[current].filter((m) => m.ownerKey === r.ownerKey);
+        groups.push({ pack: true, rep: packRow(r, members), members });
+      }
+    }
+    if (st.group) {
+      const byKey = new Map();
+      for (const r of singles) {
+        let g = byKey.get(r.groupKey);
+        if (!g) { g = { rep: r, members: [] }; byKey.set(r.groupKey, g); groups.push(g); }
+        g.members.push(r);
+      }
+      // Newest member represents the group
+      for (const g of groups) {
+        if (g.pack) continue;
+        g.members.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        g.rep = g.members[0];
+      }
+    } else {
+      for (const r of singles) groups.push({ rep: r, members: [r] });
+    }
+
+    const byName = (a, b) => a.rep.title.localeCompare(b.rep.title, undefined, { numeric: true, sensitivity: 'base' });
+    const num = (g, missing) => (g.rep.value == null || isNaN(g.rep.value) ? missing : g.rep.value);
+    const sorters = {
+      name: byName,
+      valueDesc: (a, b) => num(b, -Infinity) - num(a, -Infinity) || byName(a, b),
+      valueAsc: (a, b) => num(a, Infinity) - num(b, Infinity) || byName(a, b),
+      newest: (a, b) => (b.rep.date || '').localeCompare(a.rep.date || '') || byName(a, b),
+      oldest: (a, b) => (a.rep.date || '9999').localeCompare(b.rep.date || '9999') || byName(a, b),
+    };
+    groups.sort(sorters[st.sort] || byName);
+    return { filtered, groups };
+  }
+
+  function insChip(r) {
+    return r.ins.label && el('span', { class: 'chip ' + (r.ins.key === 'lti' ? 'lti' : r.ins.key === 'long' ? 'long' : ''), text: r.ins.label });
+  }
+  // RSI serves each picture in several sizes. The export holds small ones (165 to 216 pixels
+  // wide); "store_small" is the same picture at about 350, which suits the cards. It is not
+  // guaranteed to exist for every picture, so the original always stays as a fallback.
+  // Other sizes used here: "slideshow" (648 wide) for the pop-ups, and "source", the original.
+  const SIZE_NAMES = /\/(heap_infobox|subscribers_vault_thumbnail|store_hub_small|heap_thumb|store_small)(?=\.[a-z]+$|\/)/i;
+  const sized = (u, size) => (u || '').replace(SIZE_NAMES, '/' + size);
+  const sharper = (u) => sized(u, 'store_small');
+  // An <img> that tries each address in turn and removes itself if none of them loads
+  function picture(candidates, attrs) {
+    const list = [...new Set(candidates.map(safeImg).filter(Boolean))];
+    if (!list.length) return null;
+    let at = 0;
+    return el('img', Object.assign({
+      src: list[0], alt: '', referrerpolicy: 'no-referrer',
+      onerror: (e) => {
+        at++;
+        if (at < list.length) e.target.src = list[at];
+        else e.target.remove();
+      },
+    }, attrs));
+  }
+
+  // The row's items in the category that is the active filter, or all of them with no filter
+  function filteredItems(r) {
+    return (r.facetItems && r.facetItems[state[current].facet]) || [];
+  }
+
+  function thumbOf(r, badge) {
+    // While a category is the active filter, show the picture of the item in that category
+    // (the paint inside a bundle, say). The pledge's own picture is the fallback, both when
+    // that item has no picture and when its picture fails to load.
+    const withPicture = state[current].facet ? filteredItems(r).find((i) => i.image) : null;
+    const filtered = withPicture ? withPicture.image : '';
+    return el('div', { class: 'thumb' },
+      picture([sharper(filtered), filtered, sharper(r.image), r.image], { loading: 'lazy', decoding: 'async' }),
+      badge && el('span', { class: 'count', text: badge }));
+  }
+
+  // inPack: the card sits inside an open pack, where the value belongs to the pack
+  function card(group, inPack) {
+    const r = group.rep;
+    const n = group.members.length;
+    // Only items that have a picture: a row of blank boxes would say nothing
+    const several = filteredItems(r).filter((i) => i.image);
+    const chips = [insChip(r)];
+    if (r.giftable) chips.push(el('span', { class: 'chip', text: 'Giftable' }));
+    if (r.valueNote && !inPack) chips.push(el('span', { class: 'chip', text: r.valueNote }));
+    if (r.detail.ref && r.detail.ref.isUpgrade) chips.push(el('span', { class: 'chip', text: 'Upgrade' }));
+
+    return el('button', { class: 'card', type: 'button', onclick: () => openDetail(group) },
+      thumbOf(r, n > 1 && '×' + n),
+      el('div', { class: 'body' },
+        el('div', { class: 'title', text: r.title }),
+        r.note && el('div', { class: 'note', text: r.note }),
+        r.sub && el('div', { class: 'sub', text: r.sub }),
+        // A bundle: a small picture of each item, or of each item of the filtered kind
+        several.length > 1 && el('div', { class: 'minis' }, several.map(miniShip)),
+        chips.some(Boolean) ? el('div', { class: 'chips' }, chips) : null,
+        !inPack && el('div', { class: 'foot' },
+          el('span', { class: 'value', text: showMoney(r.value, r.currency, r.ownerKey) + (n > 1 && r.value != null ? ' each' : '') }),
+          el('span', { class: 'date', text: fmtDate(r.date) }))));
+  }
+
+  // Small picture of one ship in a closed pack, or of one item of the filtered kind in a
+  // bundle; hovering it shows the name
+  function miniShip(m) {
+    const img = safeImg(m.image);
+    const initials = m.title.slice(0, 2).toUpperCase();
+    // data-image marks the box as clickable: a click opens the full picture
+    const box = el('span', { class: 'mini', 'data-name': m.title, 'data-image': img || null });
+    if (!img) { box.textContent = initials; return box; }
+    box.append(el('img', {
+      src: img, alt: m.title, loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer',
+      onerror: () => { box.textContent = initials; },
+    }));
+    return box;
+  }
+
+  // A pack is one stacked card; clicking it opens a full-width panel with its ships
+  function packCard(group) {
+    const r = group.rep;
+    const n = group.members.length;
+    const open = expanded[current].has(r.ownerKey);
+    const toggle = () => {
+      const set = expanded[current];
+      if (open) set.delete(r.ownerKey); else set.add(r.ownerKey);
+      render();
+      const again = document.querySelector('[data-pack="' + CSS.escape(r.ownerKey) + '"]');
+      if (again) again.focus();
+    };
+    const count = plural(n, 'ship', 'ships');
+
+    if (!open) {
+      const chips = [insChip(r), r.giftable && el('span', { class: 'chip', text: 'Giftable' })];
+      return el('button', { class: 'card pack', type: 'button', 'aria-expanded': 'false', 'data-pack': r.ownerKey, onclick: toggle },
+        thumbOf(r, count),
+        el('div', { class: 'body' },
+          el('div', { class: 'title', text: r.title }),
+          el('div', { class: 'minis' }, group.members.map(miniShip)),
+          chips.some(Boolean) ? el('div', { class: 'chips' }, chips) : null,
+          el('div', { class: 'more', text: 'Show ' + count }),
+          el('div', { class: 'foot' },
+            el('span', { class: 'value', text: showMoney(r.value, r.currency, r.ownerKey) }),
+            el('span', { class: 'date', text: fmtDate(r.date) }))));
+    }
+
+    const facts = ['Pack', count, showMoney(r.value, r.currency, r.ownerKey), r.ins.label, fmtDate(r.date)].filter(Boolean).join(' · ');
+    return el('section', { class: 'pack-open' },
+      el('div', { class: 'pack-head' },
+        el('button', { class: 'pack-toggle', type: 'button', 'aria-expanded': 'true', 'data-pack': r.ownerKey, onclick: toggle },
+          el('span', { class: 'title', text: r.title }),
+          el('span', { class: 'sub' }, facts + ' · ', el('b', { text: 'Hide ships' }))),
+        el('button', { type: 'button', onclick: () => openDetail({ rep: r, members: [r] }), text: 'Pack details' })),
+      el('div', { class: 'grid' }, group.members.map((m) => card({ rep: m, members: [m] }, true))));
+  }
+
+  function render() {
+    const view = VIEWS.find((v) => v.id === current);
+    const st = state[current];
+    const { filtered, groups } = visibleGroups();
+
+    $('tip').hidden = true;
+    $('grid').replaceChildren(...groups.map((g) => (g.pack ? packCard(g) : card(g, false))));
+    $('noResults').hidden = groups.length > 0;
+
+    // Totals count each pledge once, even when a pack contributes several ships
+    const seen = new Set();
+    const totals = new Map();
+    for (const r of filtered) {
+      if (seen.has(r.ownerKey)) continue;
+      seen.add(r.ownerKey);
+      if (r.value == null || isNaN(r.value)) continue;
+      totals.set(r.currency, (totals.get(r.currency) || 0) + r.value);
+    }
+    const parts = [el('strong', { text: plural(filtered.length, view.noun[0], view.noun[1]) })];
+    if (groups.length !== filtered.length) parts.push(' shown as ' + plural(groups.length, 'card', 'cards'));
+    if (view.noun[0] === 'ship') parts.push(' in ' + plural(seen.size, 'pledge', 'pledges'));
+    const money = [...totals].map(([cur, sum]) => showMoney(sum, cur, 'total ' + cur)).join(' + ');
+    if (money) parts.push(' · ' + view.valueLabel + ' ', el('strong', { text: money }));
+    $('summary').replaceChildren(...parts);
+  }
+
+  function syncControls() {
+    const view = VIEWS.find((v) => v.id === current);
+    const st = state[current];
+    const counts = new Map();
+    for (const r of rows[current]) for (const f of r.facets) counts.set(f, (counts.get(f) || 0) + 1);
+    // Categories keep their set order; manufacturers go A to Z
+    const rank = (n) => (view.packs ? -1 : CATEGORY_ORDER.indexOf(n));
+    const names = [...counts.keys()].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+    $('facet').replaceChildren(
+      el('option', { value: '', text: view.facetAll }),
+      ...names.map((n) => el('option', { value: n, text: n + ' (' + counts.get(n) + ')' })));
+    if (st.facet && !counts.has(st.facet)) st.facet = '';
+    $('facet').value = st.facet;
+    $('search').value = st.q;
+    $('insurance').value = st.insurance;
+    $('sort').value = st.sort;
+    $('giftable').checked = st.giftable;
+    $('group').checked = st.group;
+    $('giftableWrap').hidden = !view.hangar;
+    $('packs').checked = st.packs;
+    $('packsWrap').hidden = !view.packs;
+    for (const b of $('tabs').children) b.setAttribute('aria-selected', String(b.dataset.view === current));
+  }
+
+  function show(viewId) {
+    if (!VIEWS.some((v) => v.id === viewId)) viewId = 'ships';
+    current = viewId;
+    try { history.replaceState(null, '', '#' + viewId); } catch (e) { /* not available on some file: setups */ }
+    syncControls();
+    render();
+  }
+
+  function setData(d) {
+    data = d;
+    rows = buildRows(d);
+    $('tabs').replaceChildren(...VIEWS.map((v) =>
+      el('button', { class: 'tab', type: 'button', role: 'tab', 'data-view': v.id, onclick: () => show(v.id) },
+        v.label, el('span', { class: 'n', text: rows[v.id].length.toLocaleString() }))));
+    const meta = [];
+    if (d.exportedAt) meta.push('Exported ' + fmtDateTime(d.exportedAt));
+    if (d.buybackTokens != null) meta.push(plural(d.buybackTokens, 'buy-back token', 'buy-back tokens'));
+    if (d.buybackDetailsFailed) meta.push(d.buybackDetailsFailed + ' buy-back pages could not be read');
+    $('meta').textContent = meta.join(' · ');
+    $('app').hidden = false;
+    settleGuide();
+    show((location.hash || '').slice(1) || current);
+  }
+
+  // ----------------------------------------------------------------- detail
+
+  function facts(pairs) {
+    const dl = el('dl', { class: 'facts' });
+    for (const [label, value] of pairs) {
+      if (value == null || value === '') continue;
+      dl.append(el('dt', { text: label }), el('dd', null, value));
+    }
+    return dl;
+  }
+  const section = (title, node) => [el('h3', { text: title }), node];
+  const textList = (items) => el('ul', { class: 'list' }, items.map((t) => el('li', { text: t })));
+
+  function pledgeDetail(p) {
+    const out = [];
+    const can = [p.canGift && 'gift', p.canExchange && 'exchange for store credit', p.canUpgrade && 'upgrade', p.canRename && 'rename'].filter(Boolean);
+    out.push(facts([
+      ['Pledge', p.name],
+      ['Value', showMoney(p.value, p.valueCurrency, p.id)],
+      ['Paid with', p.paidWith],
+      ['Created', fmtDate(p.created) || p.createdText],
+      ['Insurance', pledgeInsurance(p).join(', ')],
+      ['Contains', p.contains],
+      ['Status', p.availability],
+      ['You can', can.join(', ')],
+      ['Pledge ID', p.id],
+    ]));
+    if (p.items && p.items.length) {
+      out.push(...section('Items', el('ul', { class: 'list' }, p.items.map((i) =>
+        el('li', null, i.title,
+          i.customName && el('small', { text: '“' + i.customName + '”' }),
+          el('small', { text: [i.kind, i.manufacturer].filter(Boolean).join(' · ') }))))));
+    }
+    if (p.alsoContains && p.alsoContains.length) out.push(...section('Also contains', textList(p.alsoContains)));
+    const link = safeLink((data.source || '') + '?page=' + (p.page || 1));
+    if (link) out.push(el('div', { class: 'actions' }, el('a', { class: 'btn-link', href: link, target: '_blank', rel: 'noopener noreferrer', text: 'Open My Hangar, page ' + (p.page || 1) })));
+    return out;
+  }
+
+  function buybackDetail(b) {
+    const out = [];
+    out.push(facts([
+      ['Buy-back', b.name],
+      ['Price', b.price == null ? (b.isUpgrade ? 'Shown in RSI’s upgrade tool' : '') : showMoney(b.price, b.priceCurrency, b.id)],
+      ['Reclaimed', fmtDate(b.reclaimed) || b.reclaimedText],
+      ['Insurance', (b.insurance || []).join(', ')],
+      ['Contained', b.contained],
+      ['Upgrade', b.upgrade ? 'Ship ID ' + b.upgrade.fromShipId + ' to ship ID ' + b.upgrade.toShipId : ''],
+      ['Pledge ID', b.id],
+      ['Store SKU', b.sku],
+      ['Note', b.detailError ? 'Details could not be read: ' + b.detailError : ''],
+    ]));
+    if (b.description) out.push(...section('Description', el('p', { class: 'desc', text: b.description })));
+    if (b.ships && b.ships.length) {
+      out.push(...section('Ships', el('ul', { class: 'list' }, b.ships.map((s) => {
+        const page = safeLink(s.shipPage);
+        return el('li', null,
+          page ? el('a', { href: page, target: '_blank', rel: 'noopener noreferrer', text: s.name }) : s.name,
+          el('small', { text: [s.manufacturer, s.focus].filter(Boolean).join(' · ') }));
+      }))));
+    }
+    if (b.alsoContains && b.alsoContains.length) out.push(...section('Also contains', textList(b.alsoContains)));
+    const link = safeLink(b.buybackUrl);
+    if (link) out.push(el('div', { class: 'actions' }, el('a', { class: 'btn-link', href: link, target: '_blank', rel: 'noopener noreferrer', text: 'Open buy-back page' })));
+    return out;
+  }
+
+  function openDetail(group) {
+    const r = group.rep;
+    const n = group.members.length;
+    $('dlgTitle').textContent = r.title + (n > 1 ? ' ×' + n : '');
+    $('dlgSub').textContent = [r.note, r.sub].filter(Boolean).join(' · ');
+    const body = [];
+    const ref = r.detail.ref;
+    const main = (ref && (ref.image || ref.storeImage)) || r.image;
+    const hero = picture([sized(main, 'slideshow'), sharper(main), main, sharper(r.image), r.image], { class: 'hero' });
+    if (hero) body.push(hero);
+    if (ref) body.push(...(r.detail.type === 'pledge' ? pledgeDetail(ref) : buybackDetail(ref)));
+
+    if (n > 1) {
+      const isBuyback = r.detail.type === 'buyback';
+      const table = el('table', { class: 'members' },
+        el('thead', null, el('tr', null,
+          el('th', { text: 'Pledge' }), el('th', { text: 'Pledge ID' }), el('th', { text: isBuyback ? 'Reclaimed' : 'Created' }), el('th', { text: 'Value' }), el('th', { text: '' }))),
+        el('tbody', null, group.members.map((m) => {
+          const link = isBuyback && m.detail.ref ? safeLink(m.detail.ref.buybackUrl) : '';
+          return el('tr', null,
+            el('td', { text: m.detail.ref ? m.detail.ref.name : '' }),
+            el('td', { text: m.ownerKey }),
+            el('td', { text: fmtDate(m.date) }),
+            el('td', { text: showMoney(m.value, m.currency, m.ownerKey) }),
+            el('td', null, link && el('a', { href: link, target: '_blank', rel: 'noopener noreferrer', text: 'Open' })));
+        })));
+      body.push(...section('All ' + n + ' copies', el('div', { class: 'scroll-x' }, table)));
+    }
+    $('dlgBody').replaceChildren(...body);
+    $('dlgBody').scrollTop = 0;
+    $('detail').showModal();
+  }
+
+  // A small picture's own pop-up: a mid-sized version at once, replaced by the original
+  // (which can be several megabytes) when that has loaded
+  function openPicture(name, image) {
+    $('lbTitle').textContent = name;
+    const shown = picture([sized(image, 'slideshow'), sharper(image), image], { alt: name });
+    const body = [shown];
+    const original = safeImg(sized(image, 'source'));
+    if (shown && original && original !== image) {
+      const loader = new Image();
+      loader.referrerPolicy = 'no-referrer';
+      loader.onload = () => { if (shown.isConnected) shown.src = original; };
+      loader.src = original;
+      if (safeLink(original)) {
+        body.push(el('div', null, el('a', { href: original, target: '_blank', rel: 'noopener noreferrer', text: 'Open the original in a new tab' })));
+      }
+    }
+    $('lbBody').replaceChildren(...body.filter(Boolean));
+    $('lightbox').showModal();
+  }
+
+  // ---------------------------------------------------------------- loading
+
+  function looksValid(d) {
+    return d && typeof d === 'object' && Array.isArray(d.pledges);
+  }
+  function loadFile(file) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      let d;
+      try { d = JSON.parse(reader.result); } catch (e) { d = null; }
+      if (!looksValid(d)) { alert('That file is not an EasyHangar export. Pick the file named like EasyHangar-2026-11-13.json from your Downloads folder.'); return; }
+      remember(d);
+      setData(d);
+    };
+    reader.readAsText(file);
+  }
+  // Keep the hangar for the next visit; fine if the browser refuses
+  function remember(d) {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(d)); } catch (e) { /* too large or blocked */ }
+  }
+  function initialData() {
+    let stored = null;
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (raw) stored = JSON.parse(raw);
+    } catch (e) { stored = null; }
+    if (!looksValid(stored)) stored = null;
+    const embedded = looksValid(window.HANGAR_DATA) ? window.HANGAR_DATA : null;
+    // Whichever export is newer wins
+    if (stored && embedded) return (stored.exportedAt || '') > (embedded.exportedAt || '') ? stored : embedded;
+    return stored || embedded;
+  }
+
+  // ------------------------------------------------------------------ wiring
+
+  const onChange = (id, key, prop) => $(id).addEventListener(prop === 'checked' ? 'change' : 'input', (e) => {
+    state[current][key] = e.target[prop || 'value'];
+    render();
+  });
+  onChange('search', 'q');
+  onChange('facet', 'facet');
+  onChange('insurance', 'insurance');
+  onChange('sort', 'sort');
+  onChange('giftable', 'giftable', 'checked');
+  onChange('group', 'group', 'checked');
+  onChange('packs', 'packs', 'checked');
+
+  $('hideValues').checked = hideValues;
+  $('hideValues').addEventListener('change', (e) => {
+    hideValues = e.target.checked;
+    try { localStorage.setItem(HIDE_KEY, hideValues ? '1' : ''); } catch (err) { /* storage blocked */ }
+    if (data) render();
+  });
+
+  // Name tooltip for the mini ship pictures, kept inside the window edges
+  function showTip(target) {
+    const tip = $('tip');
+    tip.textContent = target.dataset.name;
+    tip.hidden = false;
+    const r = target.getBoundingClientRect();
+    const w = tip.offsetWidth;
+    const h = tip.offsetHeight;
+    const maxLeft = document.documentElement.clientWidth - w - 8;
+    tip.style.left = Math.max(8, Math.min(r.left + r.width / 2 - w / 2, maxLeft)) + 'px';
+    tip.style.top = (r.top - h - 6 < 4 ? r.bottom + 6 : r.top - h - 6) + 'px';
+  }
+  // Clicking a small picture opens that picture; anywhere else on the card does what the card
+  // does. Caught on the way down, before the card's own click handler sees it.
+  $('grid').addEventListener('click', (e) => {
+    const m = e.target.closest('.mini');
+    if (!m || !m.dataset.image) return;
+    e.stopPropagation();
+    e.preventDefault();
+    $('tip').hidden = true;
+    openPicture(m.dataset.name, m.dataset.image);
+  }, true);
+  $('lbClose').addEventListener('click', () => $('lightbox').close());
+  $('lightbox').addEventListener('click', (e) => { if (e.target === $('lightbox')) $('lightbox').close(); });
+  $('grid').addEventListener('mouseover', (e) => { const m = e.target.closest('.mini'); if (m) showTip(m); });
+  $('grid').addEventListener('mouseout', (e) => { if (e.target.closest('.mini')) $('tip').hidden = true; });
+  window.addEventListener('scroll', () => { $('tip').hidden = true; }, { passive: true });
+
+  $('loadBtn').addEventListener('click', () => $('fileInput').click());
+  $('fileInput').addEventListener('change', (e) => { if (e.target.files[0]) loadFile(e.target.files[0]); e.target.value = ''; });
+  $('dlgClose').addEventListener('click', () => $('detail').close());
+  $('detail').addEventListener('click', (e) => { if (e.target === $('detail')) $('detail').close(); });
+  window.addEventListener('hashchange', () => { if (data) show((location.hash || '').slice(1)); });
+
+  let dragDepth = 0;
+  window.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; document.body.classList.add('dragging'); });
+  window.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; document.body.classList.remove('dragging'); } });
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragDepth = 0;
+    document.body.classList.remove('dragging');
+    const f = e.dataTransfer && e.dataTransfer.files[0];
+    if (f) loadFile(f);
+  });
+
+  // ---------------------------------------------------- getting the data
+
+  function say(message) {
+    $('howtoMsg').textContent = message;
+    clearTimeout(say.timer);
+    say.timer = setTimeout(() => { $('howtoMsg').textContent = ''; }, 6000);
+  }
+  function notice(message) {
+    $('notice').textContent = message;
+    $('notice').hidden = false;
+    clearTimeout(notice.timer);
+    notice.timer = setTimeout(() => { $('notice').hidden = true; }, 12000);
+  }
+
+  // The guide is open until there is data, then minimised to its title bar. Once the
+  // person opens or minimises it themselves, that choice is kept.
+  function guideChoice() {
+    try { return localStorage.getItem(GUIDE_KEY); } catch (e) { return null; }
+  }
+  function settleGuide() {
+    const choice = guideChoice();
+    $('howto').open = choice ? choice === 'open' : !data;
+  }
+  $('howto').querySelector('summary').addEventListener('click', () => {
+    // Runs before the browser flips it, so the new state is the opposite of the current one
+    try { localStorage.setItem(GUIDE_KEY, $('howto').open ? 'closed' : 'open'); } catch (e) { /* storage blocked */ }
+  });
+
+  // The script that runs on the RSI website. Hosted on the web, the bookmark is a short loader
+  // that fetches export.js from next to this page, so it always runs the current version.
+  // Opened from a file, there is nothing to fetch from, so the whole exporter goes in the bookmark.
+  const hosted = location.protocol === 'https:';
+  const viewerUrl = /^https?:$/.test(location.protocol) ? new URL('./', location.href).href : '';
+  let exportScript = '';
+  if (hosted) {
+    exportScript = '(function(){' +
+      'if(!/(^|\\.)robertsspaceindustries\\.com$/i.test(location.hostname)){' +
+      'alert("This runs on the RSI website.\\n\\nOpen robertsspaceindustries.com, sign in, then click it again there.");return}' +
+      'var s=document.createElement("script");' +
+      's.src=' + JSON.stringify(new URL('export.js', location.href).href) + '+"?t="+Date.now();' +
+      's.onerror=function(){alert("EasyHangar could not be loaded. Check your internet connection and try again.")};' +
+      'document.body.appendChild(s)})();';
+  } else if (typeof window.easyHangarExport === 'function') {
+    // Drop comment lines and indentation to keep the bookmark short
+    const body = window.easyHangarExport.toString().split('\n').map((l) => l.trim()).filter((l) => l && !l.startsWith('//')).join('\n');
+    exportScript = '(' + body + ')(' + JSON.stringify({ viewer: viewerUrl }) + ');';
+  }
+  if (exportScript) {
+    $('bookmarklet').href = 'javascript:' + encodeURIComponent('void ' + exportScript);
+  } else {
+    say('The file export.js is missing. Keep it in the same folder as this page.');
+  }
+  $('bookmarklet').addEventListener('click', (e) => {
+    e.preventDefault();
+    say('Do not click it here. Drag it up to your bookmarks bar, then click it on the RSI website.');
+  });
+
+  // Data handed over by the exporter running in an RSI tab. Only RSI's own address is accepted.
+  const RSI_ORIGIN = /^https:\/\/([a-z0-9-]+\.)*robertsspaceindustries\.com$/i;
+  window.addEventListener('message', (e) => {
+    if (!RSI_ORIGIN.test(e.origin) || !e.data || e.data.type !== 'easyhangar-data') return;
+    if (!looksValid(e.data.payload)) return;
+    remember(e.data.payload);
+    setData(e.data.payload);
+    notice('Your hangar was just updated from the RSI website.');
+    try { e.source.postMessage({ type: 'easyhangar-ack' }, e.origin); } catch (err) { /* the RSI tab was closed */ }
+  });
+  // Opened by the exporter's "Show my hangar" button: tell it this page is ready for the data.
+  // The message carries nothing private, so it does not matter who is listening.
+  const opened = window.opener || (window.parent !== window ? window.parent : null);
+  if (opened) {
+    try { opened.postMessage({ type: 'easyhangar-ready' }, '*'); } catch (err) { /* no one there after all */ }
+  }
+  $('copyScript').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(exportScript);
+      say('Copied. Paste it into the Console on the RSI website.');
+    } catch (err) {
+      // Clipboard access can be refused on a page opened from a file; fall back to a selection
+      const box = el('textarea', { style: 'position:fixed;opacity:0' });
+      box.value = exportScript;
+      document.body.append(box);
+      box.select();
+      const ok = document.execCommand('copy');
+      box.remove();
+      if (ok) { say('Copied. Paste it into the Console on the RSI website.'); return; }
+      // Last resort: show the script so it can be copied by hand
+      const manual = $('scriptBox');
+      manual.value = exportScript;
+      manual.hidden = false;
+      manual.focus();
+      manual.select();
+      say('The script is selected below. Press Ctrl+C to copy it.');
+    }
+  });
+
+  const first = initialData();
+  if (first) setData(first);
+  else settleGuide();
+})();
+</script>
+</body>
+</html>

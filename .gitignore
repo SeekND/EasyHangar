@@ -1,0 +1,4 @@
+# Personal hangar exports must never be published
+*.json
+hangar-data.js
+.claude/
